@@ -1,0 +1,42 @@
+{
+  "name": "poolparty",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "watch-js": "watchify browser/main.js -o public/js/bundle.js -dv",
+    "build-js": "NODE_ENV=production browserify browser/main.js -p [ minifyify --no-map --uglify [ --mangle [ 'toplevel' ] ] ] > public/js/bundle.js",
+    "start-dev": "npm run watch-js & node ./bin/www",
+    "start": "npm run build-js && node ./bin/www"
+  },
+  "dependencies": {
+    "body-parser": "~1.17.2",
+    "cookie-parser": "~1.4.3",
+    "cors": "^2.7.1",
+    "debug": "~2.6.8",
+    "ejs": "~2.5.6",
+    "handlebars": "^4.0.5",
+    "jquery": "^3.2.1",
+    "jsonfile": "^4.0.0",
+    "moment": "^2.18.1",
+    "morgan": "~1.8.2",
+    "node-sass-middleware": "^0.11.0",
+    "serve-favicon": "~2.4.3",
+    "socket.io": "^2.0.3",
+    "socket.io-client": "^2.0.3"
+  },
+  "devDependencies": {
+    "browserify": "^14.4.0",
+    "cheerio": "^1.0.0-rc.1",
+    "express": "^4.15.3",
+    "minifyify": "^7.3.5",
+    "moment-duration-format": "^1.3.0",
+    "moment-timer": "^1.1.5",
+    "phantom": "^4.0.4",
+    "phantomjs-prebuilt": "^2.1.14",
+    "request": "^2.81.0",
+    "twit": "^2.2.9",
+    "twitter": "^1.7.1",
+    "voca": "^1.3.0",
+    "watchify": "^3.9.0"
+  }
+}

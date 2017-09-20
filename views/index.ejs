@@ -1,0 +1,350 @@
+<%- include('header') -%>
+
+<link type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/css/bootstrap-timepicker.min.css" rel="stylesheet"/>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-timepicker/0.5.2/js/bootstrap-timepicker.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.17.1/moment.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/moment-duration-format/1.3.0/moment-duration-format.min.js"></script>
+
+<body>
+  <div class="w-100">
+    <div class="container">
+      <div class="row">
+        <div class="page-header"></div>
+      </div>
+      <div class="row">
+        <div class="col-md-4">
+          <button id="onairbutton" type="button" class="btn btn-success w-100 text-center my-4 py-4" >정규방송_onAir <i class="fa fa-play fa-fw"></i></button>
+        </div>
+        <div class="col-md-4"></div>
+        <div class="col-md-4">
+          <p id="clock" class="lead my-5 text-center">loading...</p>
+        </div>
+      </div>
+    </div>
+    <div class="container">
+      <div class="row">
+        <div class="col-12">
+          <p class="bg-info" id = "bg-info">&nbsp;</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-5">
+          <form class="form-inline">
+            <div class="form-group">
+              <input id="item" type="text" class="form-control" placeholder="youtube url"> </div>
+            <button id="itemsend" type="button" class="btn btn-primary">유튜부URL</button>
+            <p id = "youtubeBtext" class="text-center bg-faded">  </p>    <!--   설명text (ex> url이 잘못되었습니다.)-->
+          </form>
+        </div>
+        <div class="col-md-2">
+            <div class="input-group bootstrap-timepicker timepicker">
+              <input id="timepicker" type="text" class="form-control input-small" data-minute-step="1"  value="6:00 am" readonly="">
+              <span class="input-group-addon"><i class="fa fa-clock-o" aria-hidden="false"></i></span>
+            </div>
+          <p class="text-center bg-faded">onAir schedule set</p>
+        </div>
+        <div class="col-md-1"></div>
+        <div class="col-md-4">
+          <form class="form-inline">
+            <div class="form-group">
+              <input id="liveurl" type="text" class="form-control" placeholder="youtube url"> </div>
+              <button id="livebutton" type="button" class="btn btn-warning" onclick="livestartB()">생방송  &nbsp;&nbsp;<i class='fa fa-play'></i></button>
+              <p id = "live" class="text-center bg-faded"> &nbsp; &nbsp;&nbsp; &nbsp;정규방송이 중단되고 생방송이 시작됩니다&nbsp; &nbsp;&nbsp; &nbsp; </p>
+          </form>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6    offset-md-2"> </div>
+        <div class="col-md-4 "> </div>
+      </div>
+      <div class="row">
+        <div class="col-md-4"> </div>
+      </div>
+      <div class="row">
+        <div class="col-md-4">
+          <div class="btn-group">
+            <button type="button" class="btn btn-info text-warning">트위터</button>
+            <button type="button" class="btn btn-info text-danger">실시간 검색어</button>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <p class="m-2 lead">총편성시간 : <span id=sumtime></span></p>
+        </div>
+        <div class="col-md-4">
+          <p class="lead m-2">남은편성시간 :<span id=Remaining></span></p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-12">
+          <table id="table" class="table">
+            <thead>
+              <tr>
+                <th data-field="thumb" data-formatter="thumb" data-align= 'center',data-valign='middle'></th>
+                <th data-field="title" data-align= 'center',data-valign='middle'>title</th>
+                <th data-field="duration"data-align= 'center',data-valign='middle'>duration</th>
+                <th data-field="onairtime"data-align= 'center',data-valign='middle'>방송시작시간</th>
+                <th data-field="action" data-align= 'center',data-valign='middle' data-formatter="operateFormatter" data-events="operateEvents"></th>
+              </tr>
+            </thead>
+            <tbody>
+
+
+
+            </tbody>
+          </table>
+
+
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!--
+  <div id="divInput">
+    <input type="text" placeholder="put your cool music here"
+           id="songText"></input>
+    <button id="sendButton"> Send </button>
+  </div>
+-->
+
+
+<script type="text/javascript">
+    var socket = io();
+    var interval;
+    var intervalswich = false;
+
+    //트위터, 실시간 검색어 html작업부터 시작해야함 (현재 id도 없음)
+    //트위터, 실시간 검색어 추가시 몇초를 넣을것인가?
+    //그래야 편성시간이 의미가 생김.
+    //현재 id와 time만 소켓으로 넘김 function onairDB
+
+
+    $('#onairbutton').click(function () {
+      if ($('#onairbutton').text()==='정규방송_onAir '&& $("#table tbody tr").html() !== undefined){
+        $('#onairbutton').html('정규방송 중단 <i class="fa fa-pause fa-fw"></i>');
+        $('#onairbutton').removeClass().addClass('btn btn-danger w-100 text-center my-4 py-4');
+        $('#item').prop('disabled', true);
+        $('#itemsend').prop('disabled', true);    //생방송 인풋, 버튼 활성화로 놔둘 것인가??
+//1. 시간체크
+        var currenttime = moment().format("HH:mm:ss",{trim: false});
+        var setttime = moment($('#timepicker').val(),["h:mm A"]).format("HH:mm:ss",{trim: false});
+
+          if (moment.utc(currenttime,'HH:mm:ss').isSameOrAfter(moment.utc(setttime,'HH:mm:ss'))===true){
+            var ddiff = moment.duration(moment.utc(currenttime,'HH:mm:ss').diff(moment.utc(setttime,'HH:mm:ss'))).format("HH:mm:ss",{trim: false});
+            var diff = moment.duration('24:00:00','HH:mm:ss').subtract(ddiff).format("HH:mm:ss",{trim: false});
+          }else {
+            var diff = moment.duration(moment.utc(setttime,'HH:mm:ss').diff(moment.utc(currenttime,'HH:mm:ss'))).format("HH:mm:ss",{trim: false});
+          }
+
+        var oneSecond = moment.duration(1, 'seconds');
+          if (intervalswich === false){
+              intervalswich = true;
+              interval = setInterval(function() {
+              diff = moment.duration(diff,'HH:mm:ss').subtract(oneSecond).format("HH:mm:ss",{trim: false});
+                if (diff !== moment.duration('00:00:00','HH:mm:ss').format("HH:mm:ss",{trim: false})) {
+                  $('#bg-info').html("&nbsp;&nbsp;"+diff+"후 방송이 시작됩니다");
+                    console.log(diff);
+                }else {
+                    $('#bg-info').html("&nbsp;");
+                    clearInterval(interval);
+                    intervalswich = false;
+                    onairDB();
+                }
+              },1000);
+        }
+      }else {                     //   /play쪽 iframe 중단해야함!!!!!
+        $('#onairbutton').html('정규방송_onAir <i class="fa fa-play fa-fw"></i>');
+        $('#onairbutton').removeClass().addClass('btn btn-success w-100 text-center my-4 py-4');
+        $('#item').prop('disabled', false);
+        $('#itemsend').prop('disabled', false);
+        $('#bg-info').html("&nbsp;");
+        clearInterval(interval);
+        intervalswich = false;
+
+
+
+
+
+      }
+    });
+
+    var playIDtext = "";
+    var playobjarray = [];
+
+    function onairDB() {
+      $("#table tbody tr").each(function(){
+              playIDtext += $(this).find('td:nth-child(3)').attr('id');
+            });
+            var playtimetext = $("#table tbody tr td:nth-child(3)").text();
+            //var onairtimetext = $("#table tbody tr td:nth-child(4)").text();
+            var playIDarray = [];
+            var playtimearray = [];
+            //var onairtimearray = [];
+
+            for (var i=1; i<playtimetext.length/8+1; i++){
+              playIDarray[i-1] = playIDtext.substr((i*11-11),11);
+              playtimearray[i-1] = playtimetext.substr((i*8-8),8);
+              //onairtimearray[i-1] = onairtimetext.substr((i*8-8),8);
+              playobjarray.push({ID:playIDarray[i-1],time:moment.duration(playtimearray[i-1],"HH:mm:ss").asSeconds()});
+            }
+            socket.emit('onairDB',playobjarray);
+    }
+
+
+
+    socket.on('totable',function(item){
+      //console.log("item :"+JSON.stringify(item));
+      addToList(item);
+    });
+
+    function addToList(item) {
+      $('#table > tbody:last').append('<tr><td>'+thumb(item.thumb)+'</td><td>'+item.title+'</td><td id ='+item.id+'>'
+      +moment.duration(item.duration,"seconds").format('HH:mm:ss', {trim: false})+'</td><td>'+onairtime(item.duration)
+      +'</td><td>'+deleteicon()+'</td></tr>');
+    }
+
+    function onairtime(durat) {
+
+      var setttime = moment($('#timepicker').val(),["h:mm A"]).format("HH:mm:ss"); //6:00 am
+      var sumtime = 0;
+      if ($("#table tbody tr").html() === undefined){
+        //ttt = moment.duration((durat),"seconds").format("HH:mm:ss",{trim: false});
+        $('#sumtime').html(moment.duration((durat),"seconds").format("HH:mm:ss",{trim: false}));
+        var onairtime = setttime;
+      }else {//duration + settime , d+d+settime
+        //summtime();
+        $("#table tbody tr").each(function(){
+          var tt = moment.duration($(this).find('td:nth-child(3)').text(),"HH:mm:ss").asSeconds();
+          sumtime +=  parseInt(tt);
+        })
+        var onairtime = moment(setttime,'HH:mm:ss').add(sumtime,'seconds').format("HH:mm:ss");
+        $('#sumtime').html(moment.duration((durat+sumtime),"seconds").format("HH:mm:ss",{trim: false}));
+    }return onairtime;
+  }
+
+    function thumb(value) {
+    return '<img src="'+value+'" />';
+    }
+
+    function deleteicon(value, row, index) {
+    return ['<a class="remove" href="javascript:void(0)" title="Remove">',
+            '<i class="fa fa-times"></i>',
+            '</a>'].join('');
+    }
+    $('#table').on('click','.remove', function() {
+      $(this).closest("tr").remove();
+      updatetime();
+      summtime();
+    });
+
+
+/*
+      function appenddata() {
+        var appenddata = [];
+        appenddata.push(
+          {title: items.title,
+          duration:items.duration}
+        );
+        console.log(JSON.stringify(appenddata));
+
+      } return appenddata;
+      */
+
+/*
+        function imageFormatter() {
+              return '<img src="item.thumb/100x150">';
+          }
+        function actionFormatter() {
+            return '<i class="fa fa-times"></i>';
+        }
+
+*/
+    //$('#timepicker1').timepicker();
+    $('#timepicker').timepicker({
+      defaultTime : '06:00 AM',
+      showInputs : false,
+      disableFocus : true
+    }).on('hide.timepicker', function(e) {
+      console.log('The time is ' + e.time.value);
+      updatetime();
+    });
+
+    function updatetime(){
+      var playtimetext = $("#table tbody tr td:nth-child(3)").text();
+      //var settimetext = $("#table tbody tr td:nth-child(4)").text();
+      var playtimearray = [];
+        for (var i=1; i<(playtimetext.length/8)+1; i++){
+            playtimearray[i-1] = playtimetext.substr((i*8-8),8);
+        }
+        //playtime은 끝!!!
+      var upptime = [];
+          upptime[0] = moment($('#timepicker').val(),["h:mm A"]).format("HH:mm:ss");
+
+          for (var i=1; i<(playtimetext.length/8); i++){
+            var duration = moment.duration(playtimearray[i-1],"HH:mm:ss").asSeconds();
+
+            upptime[i] = moment.utc(upptime[i-1],"HH:mm:ss").add(duration,'seconds').format('HH:mm:ss');
+        }
+        //console.log(upptime);
+        for (i=0; i<upptime.length; i++){
+          var test = i*5+3;
+          $( 'td:eq('+test+')').html(upptime[i]);
+      }
+    }
+
+    function summtime(){
+       var playtimetext = $("#table tbody tr td:nth-child(3)").text();
+       var playtimearray = [];
+       var sumtime = 0;
+         for (var i=1; i<(playtimetext.length/8)+1; i++){
+             playtimearray[i-1] = playtimetext.substr((i*8-8),8);
+             sumtime += moment.duration(playtimearray[i-1],"HH:mm:ss").asSeconds();
+         }
+         $('#sumtime').html(moment.duration((sumtime),"seconds").format("HH:mm:ss",{trim: false}));
+     }
+
+    function matchYoutubeUrl(url) {
+          var p = /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11,})(?:\S+)?$/;
+          return (url.match(p)) ? RegExp.$1 : false;
+      }
+    function livestart(){
+
+      	$('#liveurl').val('');
+      	$('#liveurl').prop('disabled', true);
+      	$('#onairbutton').html('정규방송_onAir <i class="fa fa-play fa-fw"></i>');
+      	$('#onairbutton').removeClass().addClass('btn btn-success w-100 text-center my-4 py-4');
+      	$('#onairbutton').prop('disabled', true);
+      	$('#livebutton').removeClass().addClass('btn btn-danger');
+      	$('#livebutton').html('생방송 중단 &nbsp;&nbsp;<i class="fa fa-pause"></i>');
+      	$('#livebutton').attr('onClick','livestop()');
+      	$('#live').html('&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp;생방송이 중단됩니다&nbsp; &nbsp;&nbsp; &nbsp;');
+      }
+    function livestop(){
+
+    	  $('#liveurl').prop('disabled', false);
+    	  $('#onairbutton').prop('disabled', false);
+    	  //$('#onairbutton').html('정규방송 중단 <i class="fa fa-pause fa-fw"></i>');
+    	  //$('#onairbutton').removeClass().addClass('btn btn-danger w-100 text-center my-4 py-4');
+    	  $('#livebutton').removeClass().addClass('btn btn-warning');
+    	  $('#livebutton').html('생방송  &nbsp;&nbsp;<i class="fa fa-play"></i>');
+    	  $('#livebutton').attr('onClick','livestartB()');
+    	  $('#live').html('&nbsp; &nbsp;&nbsp; &nbsp;생방송이 시작됩니다&nbsp; &nbsp;&nbsp; &nbsp;');
+    	}
+    function livestartB() {
+
+      var url = $('#liveurl').val();
+      var id = matchYoutubeUrl(url);
+        if('undefined' !== url && id !== false){ // 유효성 검사를 해서 맞으면
+           if ($('#livebutton').hasClass("btn btn-warning")===true){   //실제 생방송이 시작될 경우 여기다 code!!!
+           livestart();
+         }
+        }else {
+            $('#live').html('&nbsp; &nbsp;&nbsp; &nbsp;URL이 잘못되었습니다&nbsp; &nbsp;&nbsp; &nbsp;');
+            setTimeout(function(){$('#live').html('&nbsp; &nbsp;&nbsp; &nbsp;생방송이 시작됩니다&nbsp; &nbsp;&nbsp; &nbsp;');},1000);
+        }
+    }
+</script>
+</body>
+
+<%- include('footer') -%>
